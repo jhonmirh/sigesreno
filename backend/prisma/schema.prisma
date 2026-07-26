@@ -1,0 +1,480 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // ¡Se eliminó la línea "url = env("DATABASE_URL")"!
+}
+
+// ==========================================
+// 1. SEGURIDAD, ROLES Y AUDITORÍA (RBAC)
+// ==========================================
+
+enum RolEnum {
+  ADMINISTRADOR
+  CONTROL_ESTUDIO
+  DIRECTOR
+  DOCENTE
+}
+
+enum AccionAuditoria {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model Usuario {
+  id              String         @id @default(uuid())
+  cedula          String         @unique
+  nombreUsuario   String         @unique
+  passwordHash    String
+  activo          Boolean        @default(true)
+  roles           RolUsuario[]
+  profesor        Profesor?      // Relación opcional si el usuario es docente
+  logsAuditoria   AuditoriaLog[]
+  creadoEn        DateTime       @default(now())
+  actualizadoEn   DateTime       @updatedAt
+}
+
+model RolUsuario {
+  id        String   @id @default(uuid())
+  usuarioId String
+  rol       RolEnum
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, rol])
+}
+
+model AuditoriaLog {
+  id            String          @id @default(uuid())
+  usuarioId     String?
+  usuario       Usuario?        @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  accion        AccionAuditoria
+  tablaAfectada String
+  registroId    String
+  valorAnterior Json?
+  valorNuevo    Json?
+  ipOrigen      String?
+  fechaHora     DateTime        @default(now())
+}
+
+// ==========================================
+// 2. PERSONAL DOCENTE
+// ==========================================
+
+model Profesor {
+  id                   String        @id @default(uuid())
+  usuarioId            String?       @unique
+  usuario              Usuario?      @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  cedula               String        @unique
+  nacionalidad         Nacionalidad  @default(VENEZOLANO)
+  primerNombre         String
+  segundoNombre        String?
+  primerApellido       String
+  segundoApellido      String?
+  estadoCivil          String?
+  direccion            String
+  tituloPregrado       String?
+  tituloPostgradoEsp   String?
+  tituloPostgradoMaes  String?
+  tituloDoctorado      String?
+  otroTitulo           String?
+  poseeDiscapacidad    Boolean       @default(false)
+  informeMedicoDiscap  Boolean       @default(false)
+  numeroHijos          Int           @default(0)
+  banco                String?
+  tipoCuenta           String?
+  numeroCuenta         String?
+  codigoCargo          String?
+  descripcionCargo     String?
+  funcionInstitucion   String?
+  tallaPantalón        String?
+  tallaCamisa          String?
+  tallaZapatos         Int?
+  fechaIngresoMinisterio DateTime?
+  
+  seccionesAsignadas   AsignacionProfesorSeccion[]
+  gruposEstables       GrupoEstable[]
+  
+  creadoEn             DateTime      @default(now())
+  actualizadoEn        DateTime      @updatedAt
+}
+
+// ==========================================
+// 3. DATOS DE REPRESENTANTE Y REFERENCIAS
+// ==========================================
+
+enum TipoCuentaBanco {
+  CORRIENTE
+  AHORRO
+  OTRO
+}
+
+model Representante {
+  id                  String           @id @default(uuid())
+  cedula              String           @unique
+  nacionalidad        Nacionalidad     @default(VENEZOLANO)
+  parentesco          Parentesco
+  primerNombre        String
+  segundoNombre       String?
+  primerApellido      String
+  segundoApellido     String?
+  profesion           String?
+  direccionHabitacion String
+  lugarTrabajo        String?
+  direccionTrabajo    String?
+  telefonoPrincipal   String
+  telefonoSecundario  String?
+  colaboracionInscrip String?
+  viveConEstudiante   Boolean          @default(true)
+  descripcionAutoriz  String?          // En caso de ser persona autorizada no padre/madre
+  lugarNacimiento     String?
+  fechaNacimiento     DateTime?
+  sexo                Sexo
+  correo              String?
+  banco               String?
+  tipoCuenta          TipoCuentaBanco?
+  numeroCuenta        String?
+  grupoSanguineo      String?
+
+  estudiantes         Estudiante[]
+  creadoEn            DateTime         @default(now())
+  actualizadoEn       DateTime         @updatedAt
+}
+
+model PersonaReferencia {
+  id             String      @id @default(uuid())
+  estudianteId   String      @unique
+  estudiante     Estudiante  @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  cedula         String
+  nombres        String
+  apellidos      String
+  telefono       String
+  direccion      String
+}
+
+// ==========================================
+// 4. EXPEDIENTE COMPLETO DEL ESTUDIANTE
+// ==========================================
+
+enum Nacionalidad {
+  VENEZOLANO
+  EXTRANJERO
+}
+
+enum Sexo {
+  MASCULINO
+  FEMENINO
+}
+
+enum Parentesco {
+  MADRE
+  PADRE
+  PERSONA_AUTORIZADA
+  OTRO
+}
+
+enum TallaCamisaEnum {
+  S
+  M
+  L
+  XL
+  XXL
+  XXXL
+  TALLA_10
+  TALLA_11
+  TALLA_12
+  TALLA_13
+  TALLA_14
+  TALLA_15
+  TALLA_16
+}
+
+enum MencionPlan {
+  MEDIA_GENERAL_BACHILLER                    // Plan 31059 (1ro a 5to año)
+  TECNICO_AGROPECUARIA_CIENCIAS_AGRICOLAS_PECUARIAS // Plan 41049 (1ro a 6to año)
+}
+
+enum CondicionEstudiante {
+  REGULAR
+  REPETIDOR
+  MATERIA_PENDIENTE
+  RETIRADO_PRIMEROS_30_DIAS // Retirado en octubre
+  RETIRADO_MODIFICADO       // Retirado de noviembre a agosto
+}
+
+model Estudiante {
+  id                    String              @id @default(uuid())
+  cedula                String?             @unique
+  nacionalidad          Nacionalidad        @default(VENEZOLANO)
+  primerNombre          String
+  segundoNombre         String?
+  primerApellido        String
+  segundoApellido       String?
+  sexo                  Sexo
+  telefono              String?
+  correo                String?
+  
+  // Nacimiento y Ubicación
+  lugarNacimiento       String
+  estadoNacimiento      String
+  municipioNacimiento   String
+  parroquiaNacimiento   String
+  fechaNacimiento       DateTime
+  
+  direccion             String
+  
+  // Datos Antropométricos y Salud
+  estaturaMetros        Int                 // ej. 1
+  estaturaCentimetros   Int                 // ej. 65 -> 1.65m
+  pesoKilos             Int
+  pesoGramos            Int
+  tallaCamisa           TallaCamisaEnum
+  tallaPantalon         String              // ej. "28", "30", "S", etc.
+  tallaZapatos          Int                 // Rango 20 al 46
+  grupoSanguineo        String?
+  poseeDiscapacidad     Boolean             @default(false)
+  informeMedicoDiscap   Boolean             @default(false)
+  especificDiscapacidad String?
+  esAlergico            Boolean             @default(false)
+  especificAlergia      String?
+
+  // Datos Familiares
+  representanteId       String
+  representante         Representante       @relation(fields: [representanteId], references: [id])
+  viveConMadre          Boolean             @default(true)
+  nombreMadre           String
+  cedulaMadre           String
+  direccionMadre        String
+  telefonoMadre         String?
+  viveConPadre          Boolean             @default(true)
+  nombrePadre           String
+  cedulaPadre           String
+  direccionPadre        String
+  telefonoPadre         String?
+
+  // Referencia de Emergencia (No familiar)
+  personaReferencia     PersonaReferencia?
+
+  // Datos de Ingreso y Procedencia
+  plantelDestino        String?
+  ultimoAnoAprobado     String              // ej: "6TO_GRADO", "1ER_ANO", etc.
+  literalUltimoAno      String?             // Para 6to grado (A, B, C, D)
+  
+  // Relaciones
+  documentos            DocumentosEstudiante?
+  inscripciones         InscripcionAnnoEscolar[]
+  gruposEstables        EstudianteGrupoEstable[]
+  retirados             RegistroRetiro[]
+
+  creadoEn              DateTime            @default(now())
+  actualizadoEn         DateTime            @updatedAt
+}
+
+model DocumentosEstudiante {
+  id                      String     @id @default(uuid())
+  estudianteId            String     @unique
+  estudiante              Estudiante @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+  
+  copiaCedulaEstudiante   Boolean    @default(false)
+  partidaNacimiento       Boolean    @default(false)
+  boletaPromocion         Boolean    @default(false)
+  fotoEstudiante          Boolean    @default(false)
+  fotoRepresentante       Boolean    @default(false)
+  copiaCedulaRepresent    Boolean    @default(false)
+  notasCertificadas       Boolean    @default(false)
+  cartaBuenaConducta      Boolean    @default(false)
+  copiaCuentaBancaria     Boolean    @default(false)
+  informeMedico           Boolean    @default(false)
+  autorizacionNoPadres    Boolean    @default(false)
+  observaciones           String?
+}
+
+// ==========================================
+// 5. ESTRUCTURA ACADÉMICA Y MATRÍCULA
+// ==========================================
+
+model AnnoEscolar {
+  id             String         @id @default(uuid())
+  nombre         String         @unique // ej: "2026-2027"
+  fechaInicio    DateTime
+  fechaCierre    DateTime?
+  activo         Boolean        @default(true)
+  
+  inscripciones  InscripcionAnnoEscolar[]
+  secciones      SeccionAnnoEscolar[]
+}
+
+model SeccionAnnoEscolar {
+  id                 String                      @id @default(uuid())
+  annoEscolarId      String
+  annoEscolar        AnnoEscolar                 @relation(fields: [annoEscolarId], references: [id])
+  gradoAnno          Int                         // 1 al 6 (1ro a 6to año)
+  nombreProcer       String                      // ej: "Sucre", "Páez", "Bolívar"
+  mencion            MencionPlan
+  
+  profesoresMaterias AsignacionProfesorSeccion[]
+  inscripciones      InscripcionAnnoEscolar[]
+
+  @@unique([annoEscolarId, gradoAnno, nombreProcer, mencion])
+}
+
+model InscripcionAnnoEscolar {
+  id                  String               @id @default(uuid())
+  estudianteId        String
+  estudiante          Estudiante           @relation(fields: [estudianteId], references: [id])
+  annoEscolarId       String
+  annoEscolar         AnnoEscolar          @relation(fields: [annoEscolarId], references: [id])
+  seccionId           String
+  seccion             SeccionAnnoEscolar   @relation(fields: [seccionId], references: [id])
+  
+  numeroListaFijo     Int                  // Orden de lista inmutable durante el año
+  fechaInscripcion    DateTime             @default(now())
+  condicion           CondicionEstudiante  @default(REGULAR)
+  
+  notas               NotaLapso[]
+  notasPendientes     NotaMateriaPendiente[]
+
+  @@unique([estudianteId, annoEscolarId])
+  @@unique([seccionId, numeroListaFijo])
+}
+
+model GrupoEstable {
+  id           String                   @id @default(uuid())
+  nombreGrupo  String                   // ej: "Costura", "Mecánica Agrícola"
+  profesorId   String
+  profesor     Profesor                 @relation(fields: [profesorId], references: [id])
+  estudiantes  EstudianteGrupoEstable[]
+}
+
+model EstudianteGrupoEstable {
+  id             String       @id @default(uuid())
+  grupoEstableId String
+  grupoEstable   GrupoEstable @relation(fields: [grupoEstableId], references: [id], onDelete: Cascade)
+  estudianteId   String
+  estudiante     Estudiante   @relation(fields: [estudianteId], references: [id], onDelete: Cascade)
+
+  @@unique([grupoEstableId, estudianteId])
+}
+
+model RegistroRetiro {
+  id                  String     @id @default(uuid())
+  estudianteId        String
+  estudiante          Estudiante @relation(fields: [estudianteId], references: [id])
+  institucionDestino String
+  razonRetiro         String
+  fechaRetiro         DateTime   @default(now())
+  annoEscolarRetiro   String
+}
+
+// ==========================================
+// 6. PLANES DE ESTUDIO Y EVALUACIONES
+// ==========================================
+
+model Asignatura {
+  id              String                      @id @default(uuid())
+  codigoPlan      String                      // "31059" o "41049"
+  mencion         MencionPlan
+  gradoAnno       Int                         // 1 al 6
+  nombreMateria   String                      // "Matemáticas", "Orientación y Convivencia"
+  esCualitativa   Boolean                     @default(false) // true si es por letras A,B,C,D
+  
+  profesores      AsignacionProfesorSeccion[]
+  notas           NotaLapso[]
+  notasPendientes NotaMateriaPendiente[]
+}
+
+model AsignacionProfesorSeccion {
+  id                   String             @id @default(uuid())
+  profesorId           String
+  profesor             Profesor           @relation(fields: [profesorId], references: [id])
+  seccionAnnoEscolarId String
+  seccion              SeccionAnnoEscolar @relation(fields: [seccionAnnoEscolarId], references: [id])
+  asignaturaId         String
+  asignatura           Asignatura         @relation(fields: [asignaturaId], references: [id])
+
+  @@unique([profesorId, seccionAnnoEscolarId, asignaturaId])
+}
+
+model NotaLapso {
+  id               String                 @id @default(uuid())
+  inscripcionId    String
+  inscripcion      InscripcionAnnoEscolar @relation(fields: [inscripcionId], references: [id])
+  asignaturaId     String
+  asignatura       Asignatura             @relation(fields: [asignaturaId], references: [id])
+  lapso            Int                    // 1, 2 o 3
+  
+  // Evaluaciones del lapso (2 a 5 evaluaciones)
+  evaluaciones     EvaluacionDetalle[]
+
+  // Calificación del Lapso
+  notaCuantitativa Float?                 // 1 - 20 o nulo si es inasistente (I)
+  notaCualitativa  String?                // 'A', 'B', 'C', 'D' si es Orientación
+  esInasistente    Boolean                @default(false) // 'I'
+
+  // Proceso de Revisión (si aplica al final del año)
+  notaRevision1    Float?
+  notaRevision2    Float?
+  definitivaMateria Float?
+
+  creadoEn         DateTime               @default(now())
+  actualizadoEn    DateTime               @updatedAt
+}
+
+model EvaluacionDetalle {
+  id              String    @id @default(uuid())
+  notaLapsoId     String
+  notaLapso       NotaLapso @relation(fields: [notaLapsoId], references: [id], onDelete: Cascade)
+  numeroEval      Int       // 1, 2, 3, 4 o 5
+  tecnicaUtilizada String
+  instrumentoUtil  String
+  fechaAplicacion DateTime
+  horaAplicacion  String
+  
+  notaOriginal    Float?    // 1ra Forma
+  nota2daForma    Float?    // 2da Forma si reprobó
+  inasistente1ra  Boolean   @default(false)
+  inasistente2da  Boolean   @default(false)
+}
+
+model NotaMateriaPendiente {
+  id               String                 @id @default(uuid())
+  inscripcionId    String
+  inscripcion      InscripcionAnnoEscolar @relation(fields: [inscripcionId], references: [id])
+  asignaturaId     String
+  asignatura       Asignatura             @relation(fields: [asignaturaId], references: [id])
+  
+  // 4 Oportunidades: Octubre, Diciembre, Febrero, Marzo
+  // Octubre (Oportunidad 1)
+  fechaOctubre     DateTime?
+  octubreForma1    Float?
+  octubreForma2    Float?
+  octubreInasist   Boolean                @default(false)
+
+  // Diciembre (Oportunidad 2)
+  fechaDiciembre   DateTime?
+  diciembreForma1  Float?
+  diciembreForma2  Float?
+  diciembreInasist Boolean                @default(false)
+
+  // Febrero (Oportunidad 3)
+  fechaFebrero     DateTime?
+  febreroForma1    Float?
+  febreroForma2    Float?
+  febreroInasist   Boolean                @default(false)
+
+  // Marzo (Oportunidad 4)
+  fechaMarzo       DateTime?
+  marzoForma1      Float?
+  marzoForma2      Float?
+  marzoInasist     Boolean                @default(false)
+
+  // Si reprueba las 4 va a revisión final
+  revisionForma1   Float?
+  revisionForma2   Float?
+  
+  aprobada         Boolean                @default(false)
+}
