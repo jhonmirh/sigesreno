@@ -478,3 +478,40 @@ model NotaMateriaPendiente {
   
   aprobada         Boolean                @default(false)
 }
+
+model Student {
+  id                  String   @id @default(uuid())
+  cedula              String?  @unique // Cédula de Identidad (opcional si es menor sin CI)
+  cedulaEscolar       String?  @unique // Cédula Escolar
+  firstName           String
+  lastName            String
+  birthDate           DateTime
+  placeOfBirth        String?  // Lugar de nacimiento
+  gender              String
+  address             String?  // Dirección de habitación
+  
+  // --- Datos Antropométricos y Uniforme ---
+  weight              Float?   // Peso en kg
+  height              Float?   // Estatura en metros
+  shirtSize           String?  // Talla de camisa (Ej: S, M, L, 14, 16)
+  pantsSize           String?  // Talla de pantalón
+  shoeSize            String?  // Talla de calzado
+  
+  // --- Datos de Salud ---
+  bloodType           String?  // Grupo sanguíneo
+  allergies           String?  // Alergias
+  chronicDiseases     String?  // Enfermedades crónicas o condiciones médicas
+  
+  // --- Control de Documentos Consignados ---
+  hasBirthCertificate Boolean  @default(false) // Partida de Nacimiento
+  hasPhotos           Boolean  @default(false) // Fotos tipo carnet
+  hasPreviousGrades   Boolean  @default(false) // Notas certificadas o boleta anterior
+  hasIdCopy           Boolean  @default(false) // Copia de Cédula (si aplica)
+
+  // --- Relación con Representante (Lo activaremos en el próximo paso) ---
+  // representativeId String?
+  // representative   Representative? @relation(fields: [representativeId], references: [id])
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
