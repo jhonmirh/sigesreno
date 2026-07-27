@@ -1,26 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSectionDto } from './dto/create-section.dto';
 import { UpdateSectionDto } from './dto/update-section.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SectionService {
-  create(createSectionDto: CreateSectionDto) {
-    return 'This action adds a new section';
+  constructor(private prisma: PrismaService) {}
+
+  async create(createSectionDto: CreateSectionDto) {
+    return this.prisma.section.create({
+      data: createSectionDto,
+      include: {
+        sectionName: true,
+        specialty: true,
+      },
+    });
   }
 
-  findAll() {
-    return `This action returns all section`;
+  async findAll() {
+    return this.prisma.section.findMany({
+      include: {
+        sectionName: true,
+        specialty: true,
+      },
+      orderBy: [
+        { grade: 'asc' },
+        { sectionName: { name: 'asc' } },
+      ],
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} section`;
+  async findOne(id: string) {
+    const section = await this.prisma.section.findUnique({
+      where: { id },
+      include: {
+        sectionName: true,
+        specialty: true,
+      },
+    });
+    if (!section) throw new NotFoundException('Sección no encontrada');
+    return section;
   }
 
-  update(id: number, updateSectionDto: UpdateSectionDto) {
-    return `This action updates a #${id} section`;
+  async update(id: string, updateSectionDto: UpdateSectionDto) {
+    await this.findOne(id);
+    return this.prisma.section.update({
+      where: { id },
+      data: updateSectionDto,
+      include: {
+        sectionName: true,
+        specialty: true,
+      },
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} section`;
+  async remove(id: string) {
+    await this.findOne(id);
+    return this.prisma.section.delete({
+      where: { id },
+    });
   }
 }

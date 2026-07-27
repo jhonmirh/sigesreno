@@ -1,26 +1,44 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateSpecialtyDto } from './dto/create-specialty.dto';
 import { UpdateSpecialtyDto } from './dto/update-specialty.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class SpecialtyService {
-  create(createSpecialtyDto: CreateSpecialtyDto) {
-    return 'This action adds a new specialty';
+  constructor(private prisma: PrismaService) {}
+
+  async create(createSpecialtyDto: CreateSpecialtyDto) {
+    return this.prisma.specialty.create({
+      data: createSpecialtyDto,
+    });
   }
 
-  findAll() {
-    return `This action returns all specialty`;
+  async findAll() {
+    return this.prisma.specialty.findMany({
+      orderBy: { name: 'asc' },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} specialty`;
+  async findOne(id: string) {
+    const specialty = await this.prisma.specialty.findUnique({
+      where: { id },
+    });
+    if (!specialty) throw new NotFoundException('Especialidad no encontrada');
+    return specialty;
   }
 
-  update(id: number, updateSpecialtyDto: UpdateSpecialtyDto) {
-    return `This action updates a #${id} specialty`;
+  async update(id: string, updateSpecialtyDto: UpdateSpecialtyDto) {
+    await this.findOne(id);
+    return this.prisma.specialty.update({
+      where: { id },
+      data: updateSpecialtyDto,
+    });
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} specialty`;
+  async remove(id: string) {
+    await this.findOne(id);
+    return this.prisma.specialty.delete({
+      where: { id },
+    });
   }
 }
