@@ -538,5 +538,97 @@ model Representative {
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
+
+// --- MÓDULO ACADÉMICO Y MATRÍCULA ---
+
+// Definimos las modalidades que ofrece la institución
+enum Modality {
+  MEDIA_GENERAL
+  MEDIA_TECNICA
+}
+
+// 1. Año Escolar (Ej: "2026-2027")
+model SchoolYear {
+  id          String       @id @default(uuid())
+  period      String       @unique 
+  isActive    Boolean      @default(false) 
+  
+  enrollments Enrollment[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// 2. Especialidad Técnica (Ej: "Informática", "Agropecuaria")
+model Specialty {
+  id          String       @id @default(uuid())
+  code        String       @unique 
+  name        String       @unique 
+  description String?
+  
+  sections    Section[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// --- CATÁLOGOS ---
+
+// Catálogo de Nombres de Secciones (Próceres)
+model SectionName {
+  id          String    @id @default(uuid())
+  name        String    @unique // Ej: "Simón Bolívar", "Francisco de Miranda"
+  
+  // Relación: Un nombre puede ser usado en varias secciones (ej: 1er Año Simón Bolívar, 2do Año Simón Bolívar)
+  sections    Section[]
+  
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// --- MÓDULO ACADÉMICO Y MATRÍCULA ---
+
+// 3. Sección
+model Section {
+  id              String       @id @default(uuid())
+  modality        Modality     
+  grade           String       
+  
+  // AHORA SE CONECTA AL CATÁLOGO EN LUGAR DE SER TEXTO LIBRE
+  sectionNameId   String
+  sectionName     SectionName  @relation(fields: [sectionNameId], references: [id])
+  
+  specialtyId     String?      
+  specialty       Specialty?   @relation(fields: [specialtyId], references: [id])
+  
+  enrollments     Enrollment[]
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+// 4. Matrícula / Inscripción
+model Enrollment {
+  id           String     @id @default(uuid())
+  
+  studentId    String
+  student      Student    @relation(fields: [studentId], references: [id])
+  
+  schoolYearId String
+  schoolYear   SchoolYear @relation(fields: [schoolYearId], references: [id])
+  
+  sectionId    String
+  section      Section    @relation(fields: [sectionId], references: [id])
+  
+  status       String     @default("REGULAR") // REGULAR, RETIRADO, GRADUADO
+  
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([studentId, schoolYearId]) 
+}
+
+  
 }
 
