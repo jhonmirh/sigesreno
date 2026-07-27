@@ -83,4 +83,10 @@ export class CreateStudentDto {
     @IsBoolean()
     @IsOptional()
     hasIdCopy?: boolean;
+
+    // --- Relación con Representante ---
+    @IsString()
+    @IsOptional()
+    representativeId?: string;
+
 }

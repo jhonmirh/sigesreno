@@ -514,4 +514,29 @@ model Student {
   
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+
+representativeId String?
+  representative   Representative? @relation(fields: [representativeId], references: [id])
+
 }
+
+//-------------------
+model Representative {
+  id              String    @id @default(uuid())
+  cedula          String    @unique
+  firstName       String
+  lastName        String
+  phone           String
+  altPhone        String?   // Teléfono alternativo
+  email           String?   
+  address         String    // Dirección de habitación
+  profession      String?   // Profesión u oficio
+  kinship         String    // Parentesco (Madre, Padre, Abuelo, Tío, etc.)
+  
+  // Relación: Un representante puede tener muchos estudiantes
+  students        Student[] 
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
