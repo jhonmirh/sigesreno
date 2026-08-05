@@ -67,12 +67,14 @@ model PlanDeEstudio {
 }
 
 model Materia {
-  id              String        @id @default(uuid())
-  nombre          String
-  horasSemanales  Int
-  anioCurso       Int // Del 1 al 6 (La técnica arranca desde el 1er año, no hay ciclo básico)
-  planDeEstudioId String
-  planDeEstudio   PlanDeEstudio @relation(fields: [planDeEstudioId], references: [id])
+  id                 String             @id @default(uuid())
+  nombre             String
+  horasSemanales     Int
+  anioCurso          Int // Del 1 al 6 (La técnica arranca desde el 1er año, no hay ciclo básico)
+  planDeEstudioId    String
+  planDeEstudio      PlanDeEstudio      @relation(fields: [planDeEstudioId], references: [id])
+  planesEvaluacion   PlanEvaluacion[]
+  materiasPendientes MateriaPendiente[]
 }
 
 // Catalogo para asegurar que las secciones usen nombres de próceres
@@ -91,6 +93,8 @@ model Seccion {
   // En el futuro aquí se relacionarán los Estudiantes Matriculados
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  matriculas Matricula[]
 
   // Evita que exista dos veces la sección "1er Año Simón Bolívar"
   @@unique([anioCurso, nombreProcerId])
@@ -140,6 +144,8 @@ model Profesor {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  gruposEstables GrupoEstable[]
 }
 
 model Representante {
@@ -251,6 +257,10 @@ model Estudiante {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  matriculas         Matricula[]
+  gruposEstables     InscripcionGrupoEstable[]
+  materiasPendientes MateriaPendiente[]
 }
 
 // Checklist de requisitos de inscripción
@@ -271,4 +281,130 @@ model DocumentosEstudiante {
   informeMedico             Boolean @default(false)
   autorizacionRepresentante Boolean @default(false)
   observacion               String?
+}
+
+// ==========================================
+// 5. MATRÍCULA Y GRUPOS ESTABLES
+// ==========================================
+model AnioEscolar {
+  id                     String   @id @default(uuid())
+  nombre                 String   @unique // Ej: "2026-2027"
+  fechaInicio            DateTime
+  fechaCierreInscripcion DateTime // Para saber quiénes van al final de la nómina
+  fechaFin               DateTime
+  activo                 Boolean  @default(true)
+
+  matriculas Matricula[]
+  lapsos     Lapso[]
+}
+
+model Matricula {
+  id            String      @id @default(uuid())
+  estudianteId  String
+  estudiante    Estudiante  @relation(fields: [estudianteId], references: [id])
+  seccionId     String
+  seccion       Seccion     @relation(fields: [seccionId], references: [id])
+  anioEscolarId String
+  anioEscolar   AnioEscolar @relation(fields: [anioEscolarId], references: [id])
+
+  // Control estricto de Nómina
+  numeroLista Int // Número fijo para correlación en la planilla del docente
+  condicion   String @default("Regular") // Regular, Retirado, Retirado Modificado, Repitiente, Materia Pendiente
+
+  // Datos de Retiro
+  fechaRetiro        DateTime?
+  motivoRetiro       String?
+  institucionDestino String?
+
+  calificaciones Calificacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Un estudiante no puede inscribirse dos veces en el mismo año escolar
+  @@unique([estudianteId, anioEscolarId])
+}
+
+model GrupoEstable {
+  id         String   @id @default(uuid())
+  nombre     String // Ej: "Costura", "Robótica"
+  profesorId String
+  profesor   Profesor @relation(fields: [profesorId], references: [id])
+
+  inscripciones InscripcionGrupoEstable[]
+}
+
+model InscripcionGrupoEstable {
+  id             String       @id @default(uuid())
+  estudianteId   String
+  estudiante     Estudiante   @relation(fields: [estudianteId], references: [id])
+  grupoEstableId String
+  grupoEstable   GrupoEstable @relation(fields: [grupoEstableId], references: [id])
+
+  @@unique([estudianteId, grupoEstableId])
+}
+
+// ==========================================
+// 6. MOTOR DE EVALUACIONES Y NOTAS
+// ==========================================
+model Lapso {
+  id            String      @id @default(uuid())
+  numero        Int // 1, 2 o 3
+  anioEscolarId String
+  anioEscolar   AnioEscolar @relation(fields: [anioEscolarId], references: [id])
+
+  planesEvaluacion PlanEvaluacion[]
+}
+
+model PlanEvaluacion {
+  id        String  @id @default(uuid())
+  materiaId String
+  materia   Materia @relation(fields: [materiaId], references: [id])
+  lapsoId   String
+  lapso     Lapso   @relation(fields: [lapsoId], references: [id])
+
+  // Detalles metodológicos de la prueba
+  tecnica         String
+  instrumento     String
+  fechaAplicacion DateTime
+  horaAplicacion  String
+
+  calificaciones Calificacion[]
+}
+
+model Calificacion {
+  id               String         @id @default(uuid())
+  matriculaId      String
+  matricula        Matricula      @relation(fields: [matriculaId], references: [id])
+  planEvaluacionId String
+  planEvaluacion   PlanEvaluacion @relation(fields: [planEvaluacionId], references: [id])
+
+  // Forma Original
+  notaForma1        Float?
+  inasistenteForma1 Boolean @default(false) // Letra "I"
+
+  // Segunda Forma (Se bloquea en frontend/backend si inasistenteForma1 es true)
+  notaForma2        Float?
+  inasistenteForma2 Boolean @default(false)
+
+  @@unique([matriculaId, planEvaluacionId])
+}
+
+model MateriaPendiente {
+  id            String     @id @default(uuid())
+  estudianteId  String
+  estudiante    Estudiante @relation(fields: [estudianteId], references: [id])
+  materiaId     String
+  materia       Materia    @relation(fields: [materiaId], references: [id])
+  anioEscolarId String // Año en el que está presentando la materia arrastrada
+
+  // Oportunidades: "Octubre", "Diciembre", "Febrero", "Marzo"
+  oportunidad String
+
+  notaForma1        Float?
+  inasistenteForma1 Boolean @default(false)
+  notaForma2        Float?
+  inasistenteForma2 Boolean @default(false)
+
+  aprobado Boolean @default(false)
 }
