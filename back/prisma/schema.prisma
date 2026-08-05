@@ -95,3 +95,180 @@ model Seccion {
   // Evita que exista dos veces la sección "1er Año Simón Bolívar"
   @@unique([anioCurso, nombreProcerId])
 }
+
+// ==========================================
+// 4. GESTIÓN DE PERSONAS (PROFESORES, REPRESENTANTES Y ESTUDIANTES)
+// ==========================================
+
+model Profesor {
+  id              String  @id @default(uuid())
+  cedula          String  @unique
+  primerNombre    String
+  segundoNombre   String?
+  primerApellido  String
+  segundoApellido String?
+  estadoCivil     String
+  direccion       String
+
+  // Perfil Académico
+  tituloPregrado        String?
+  tituloEspecializacion String?
+  tituloMaestria        String?
+  tituloDoctorado       String?
+  otroTitulo            String?
+
+  // Datos Laborales
+  codigoCargo        String?
+  descripcionCargo   String?
+  funcionInstitucion String?
+  fechaIngresoMPPE   DateTime? // Ingreso al Ministerio de Educación
+
+  // Datos Médicos y Personales
+  discapacidad  Boolean @default(false)
+  informeMedico Boolean @default(false)
+  numeroHijos   Int     @default(0)
+
+  // Tallas
+  tallaCamisa   String?
+  tallaPantalon String?
+  tallaZapatos  String?
+
+  // Datos Bancarios
+  banco        String?
+  tipoCuenta   String?
+  numeroCuenta String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Representante {
+  id              String   @id @default(uuid())
+  cedula          String   @unique
+  nacionalidad    String // V o E
+  nombres         String
+  apellidos       String
+  parentesco      String
+  sexo            String
+  fechaNacimiento DateTime
+  edad            Int
+  lugarNacimiento String
+  direccion       String
+  correo          String?
+  telefono1       String
+  telefono2       String?
+
+  // Datos Laborales y Bancarios
+  profesion        String?
+  lugarTrabajo     String?
+  direccionTrabajo String?
+  telefonoTrabajo  String?
+  banco            String?
+  tipoCuenta       String?
+  numeroCuenta     String?
+
+  // Otros
+  colaboracion            String?
+  viveConEstudiante       Boolean @default(true)
+  descripcionAutorizacion String?
+  grupoSanguineo          String?
+
+  estudiantes Estudiante[] // Un representante puede tener varios representados
+}
+
+model ContactoEmergencia {
+  id        String @id @default(uuid())
+  cedula    String @unique
+  nombres   String
+  apellidos String
+  telefono  String
+  direccion String
+
+  estudiantes Estudiante[]
+}
+
+model Estudiante {
+  id              String  @id @default(uuid())
+  nacionalidad    String // V o E
+  cedula          String? @unique
+  primerNombre    String
+  segundoNombre   String?
+  primerApellido  String
+  segundoApellido String?
+  sexo            String
+
+  // Nacimiento y Ubicación
+  fechaNacimiento  DateTime
+  diaNacimiento    Int
+  mesNacimiento    Int
+  anioNacimiento   Int
+  lugarNacimiento  String
+  estadoNacimiento String?
+  edad             Int
+  direccion        String
+  telefono         String?
+  correo           String?
+
+  // Datos Familiares Textuales
+  nombreMadre    String?
+  cedulaMadre    String?
+  direccionMadre String?
+  nombrePadre    String?
+  cedulaPadre    String?
+  direccionPadre String?
+  viveCon        String // Madre, Padre, Autorizado
+
+  // Relaciones Formales
+  representanteId      String
+  representante        Representante       @relation(fields: [representanteId], references: [id])
+  contactoEmergenciaId String?
+  contactoEmergencia   ContactoEmergencia? @relation(fields: [contactoEmergenciaId], references: [id])
+
+  // Datos Antropométricos
+  estaturaMetros      Int
+  estaturaCentimetros Int
+  pesoKilos           Int
+  pesoGramos          Int
+  tallaCamisa         String
+  tallaPantalon       String
+  tallaZapatos        String
+
+  // Datos Médicos
+  grupoSanguineo        String?
+  discapacidad          Boolean @default(false)
+  informeMedico         Boolean @default(false)
+  alergico              Boolean @default(false)
+  especificacionAlergia String?
+
+  // Datos Académicos Iniciales
+  plantelDestino            String? // Se llena si es retirado
+  ultimoAnioAprobadoLiteral String? // Ej: "A" (Para los de 1er año)
+  gradoACursar              Int
+  mencion                   String // "Agropecuaria" o "Ciencias"
+  fechaInscripcion          DateTime @default(now())
+
+  documentos DocumentosEstudiante?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Checklist de requisitos de inscripción
+model DocumentosEstudiante {
+  id           String     @id @default(uuid())
+  estudianteId String     @unique
+  estudiante   Estudiante @relation(fields: [estudianteId], references: [id])
+
+  copiaCedula               Boolean @default(false)
+  partidaNacimiento         Boolean @default(false)
+  boletaPromocion           Boolean @default(false)
+  fotoAlumno                Boolean @default(false)
+  fotoRepresentante         Boolean @default(false)
+  fotocopiaCedulaRep        Boolean @default(false)
+  notasCertificadas         Boolean @default(false)
+  cartaBuenaConducta        Boolean @default(false)
+  copiaCuentaBancaria       Boolean @default(false)
+  informeMedico             Boolean @default(false)
+  autorizacionRepresentante Boolean @default(false)
+  observacion               String?
+}
