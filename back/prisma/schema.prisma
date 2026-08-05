@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// 1. SEGURIDAD Y ROLES
+// ==========================================
+enum Role {
+  ADMIN // Único con permiso para modificar mallas curriculares
+  SECRETARIA
+  DOCENTE
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  role      Role     @default(DOCENTE)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// 2. DIVISIÓN POLÍTICO-TERRITORIAL
+// ==========================================
+model Estado {
+  id         Int         @id @default(autoincrement())
+  nombre     String      @unique
+  municipios Municipio[]
+}
+
+model Municipio {
+  id         Int         @id @default(autoincrement())
+  nombre     String
+  estadoId   Int
+  estado     Estado      @relation(fields: [estadoId], references: [id])
+  parroquias Parroquia[]
+}
+
+model Parroquia {
+  id          Int       @id @default(autoincrement())
+  nombre      String
+  municipioId Int
+  municipio   Municipio @relation(fields: [municipioId], references: [id])
+  // Aquí se relacionarán luego las direcciones de Estudiantes y Representantes
+}
+
+// ==========================================
+// 3. ESTRUCTURA ACADÉMICA (MALLAS Y SECCIONES)
+// ==========================================
+model PlanDeEstudio {
+  id          String    @id @default(uuid())
+  codigo      String    @unique // Ej: "41049" o "31059"
+  nombre      String // Ej: "Técnicos profesionales en agropecuaria"
+  descripcion String?
+  materias    Materia[]
+}
+
+model Materia {
+  id              String        @id @default(uuid())
+  nombre          String
+  horasSemanales  Int
+  anioCurso       Int // Del 1 al 6 (La técnica arranca desde el 1er año, no hay ciclo básico)
+  planDeEstudioId String
+  planDeEstudio   PlanDeEstudio @relation(fields: [planDeEstudioId], references: [id])
+}
+
+// Catalogo para asegurar que las secciones usen nombres de próceres
+model NombreProcer {
+  id        String    @id @default(uuid())
+  nombre    String    @unique // Ej: "Simón Bolívar", "Andrés Bello"
+  secciones Seccion[]
+}
+
+model Seccion {
+  id             String       @id @default(uuid())
+  anioCurso      Int // 1 al 6
+  nombreProcerId String
+  nombreProcer   NombreProcer @relation(fields: [nombreProcerId], references: [id])
+
+  // En el futuro aquí se relacionarán los Estudiantes Matriculados
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Evita que exista dos veces la sección "1er Año Simón Bolívar"
+  @@unique([anioCurso, nombreProcerId])
+}
